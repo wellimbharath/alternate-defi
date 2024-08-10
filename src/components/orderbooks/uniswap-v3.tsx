@@ -85,7 +85,7 @@ const getAmount1ForLiquidity = (sqrtA: ethers.BigNumber, sqrtB: ethers.BigNumber
 const UniswapV3Orderbook: React.FC = () => {
   const [dataSource, setDataSource] = useState<'subgraph' | 'rpc'>('subgraph');
   const [rpcUrl, setRpcUrl] = useState<string>('');
-  const [subgraphUrl, setSubgraphUrl] = useState<string>('');
+  const [subgraphUrl, setSubgraphUrl] = useState<string>('https://gateway.thegraph.com/api/[api-key]/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV');
   const [selectedPair, setSelectedPair] = useState<TokenPair | null>(null);
   const [customContractAddress, setCustomContractAddress] = useState<string>('0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
