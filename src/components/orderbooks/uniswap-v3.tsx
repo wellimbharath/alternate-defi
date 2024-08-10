@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Switch } from '../ui/switch';
 import { Loader2 } from 'lucide-react';
 
 const UNISWAP_V3_POOL_ABI = [
@@ -36,14 +35,6 @@ interface TokenPair {
   name: string;
   address: string;
 }
-
-const popularPairs: TokenPair[] = [
-  { name: 'ETH/USDC', address: '0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8' },
-  { name: 'WBTC/ETH', address: '0xcbcdf9626bc03e24f779434178a73a0b4bad62ed' },
-  { name: 'USDT/USDC', address: '0x3416cf6c708da44db2624d63ea0aaef7113527c6' },
-  { name: 'DAI/USDC', address: '0x5777d92f208679db4b9778590fa3cab3ac9e2168' },
-  // Add more pairs as needed
-];
 
 
 const Q96 = ethers.BigNumber.from(2).pow(96);
