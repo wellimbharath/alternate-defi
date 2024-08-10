@@ -4,11 +4,11 @@ import { ethers } from 'ethers';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Loader2 } from 'lucide-react';
+import { Github, Loader2 } from 'lucide-react';
 
 const UNISWAP_V3_POOL_ABI = [
   "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
@@ -471,6 +471,25 @@ const UniswapV3Orderbook: React.FC = () => {
           </Table>
         </div>
       </CardContent>
+
+      <CardFooter className="flex flex-col items-center justify-center pt-4 pb-2 px-4 mt-4 border-t text-sm text-gray-500 flex-col-2">
+        <div className="flex items-center mb-2">
+         Made with ❤️ by <a href="https://twitter.com/wellimbharath" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">@wellimbharath</a>
+        </div>
+
+        </CardFooter>
+        <CardFooter className="flex flex-col items-center justify-center pt-4 pb-2 px-4 mt-4 border-t text-sm text-gray-500 flex-col-2">
+        <div className="flex items-center space-x-4">
+          <a href="https://github.com/wellimbharath/alternate-defi" target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-gray-700">
+            <Github className="h-4 w-4 mr-1" />
+            <span>GitHub</span>
+          </a>
+
+          <a href="#" target="_blank" rel="noopener noreferrer" className="hover:text-black-700">
+            <b>Alternate Defi</b>
+          </a>
+        </div>
+      </CardFooter>
     </Card>
   );
 };
