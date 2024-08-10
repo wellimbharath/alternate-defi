@@ -350,17 +350,22 @@ const UniswapV3Orderbook: React.FC = () => {
               </SelectContent>
             </Select>
             {dataSource === 'subgraph' ? (
+              <>
               <Input
                 value={subgraphUrl}
                 onChange={(e) => setSubgraphUrl(e.target.value)}
                 placeholder="Enter Subgraph URL"
               />
+
+              <span className="text-xs">* get your api key from <a href="https://thegraph.com/studio/apikeys/"> TheGraph </a> </span>
+              </>
             ) : (
               <Input
                 value={rpcUrl}
                 onChange={(e) => setRpcUrl(e.target.value)}
                 placeholder="Enter RPC URL"
               />
+
             )}
             {/* <Select onValueChange={(value) => setSelectedPair(popularPairs.find(pair => pair.address === value) || null)}>
             <SelectTrigger>
@@ -374,12 +379,16 @@ const UniswapV3Orderbook: React.FC = () => {
           </Select> */}
             <br />
             {/* or */}
-            Contract Address:
+            <>
+
             <Input
               value={customContractAddress}
               onChange={(e) => setCustomContractAddress(e.target.value)}
               placeholder="Enter custom pool contract address"
             />
+              <span className="text-xs"> * Uni v3 Pool Address</span>
+            </>
+            <br/>
             <Button onClick={fetchPoolData}> {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
