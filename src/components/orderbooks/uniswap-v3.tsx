@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Switch } from '../ui/switch';
+import { Loader2 } from 'lucide-react';
 
 const UNISWAP_V3_POOL_ABI = [
   "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
@@ -52,8 +53,8 @@ const Q192 = ethers.BigNumber.from(2).pow(192);
 const priceToSqrtP = (price: number): ethers.BigNumber => {
   if (price <= 0) return ethers.constants.Zero;
   return ethers.BigNumber.from(
-    ethers.utils.parseUnits(Math.sqrt(price).toFixed(18), 18)
-  ).mul(Q96).div(ethers.utils.parseUnits('1', 18));
+    ethers.utils.parseUnits(Math.sqrt(price).toFixed(8), 8)
+  ).mul(Q96).div(ethers.utils.parseUnits('1', 8));
 };
 
 const sqrtPToPrice = (sqrtP: ethers.BigNumber): ethers.BigNumber => {
@@ -93,17 +94,19 @@ const getAmount1ForLiquidity = (sqrtA: ethers.BigNumber, sqrtB: ethers.BigNumber
 const UniswapV3Orderbook: React.FC = () => {
   const [dataSource, setDataSource] = useState<'subgraph' | 'rpc'>('subgraph');
   const [rpcUrl, setRpcUrl] = useState<string>('');
-  const [subgraphUrl, setSubgraphUrl] = useState<string>('');
+  const [subgraphUrl, setSubgraphUrl] = useState<string>('https://gateway.thegraph.com/api/9f45d9bf4cb9d1bed40b678415a67563/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV');
   const [selectedPair, setSelectedPair] = useState<TokenPair | null>(null);
   const [customContractAddress, setCustomContractAddress] = useState<string>('0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [orderbook, setOrderbook] = useState<OrderbookEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [token0Symbol, setToken0Symbol] = useState<string>('');
+  const [token0Decimals, setToken0Decimals] = useState<number>(0);
+  const [token1Decimals, setToken1Decimals] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
   const [token1Symbol, setToken1Symbol] = useState<string>('');
   const [poolFee, setPoolFee] = useState<number | null>(null);
-  const [isToken0Base, setIsToken0Base] = useState<boolean>(true);
-
 
   const fetchSubgraphData = useCallback(async () => {
     const query = `
@@ -130,7 +133,7 @@ const UniswapV3Orderbook: React.FC = () => {
       }
     `;
 
-    let allTicks : any = [];
+    let allTicks: any = [];
     let skip = 0;
     let poolData = null;
 
@@ -215,25 +218,28 @@ const UniswapV3Orderbook: React.FC = () => {
     };
   }, [rpcUrl, customContractAddress]);
 
-  function getBaseLog(x : number, y: number) {
-    return Math.log(y) / Math.log(x);
-  }
-
   const processPoolData = useCallback((poolData: any) => {
+
     setToken0Symbol(poolData.token0.symbol);
     setToken1Symbol(poolData.token1.symbol);
+
+    setToken0Decimals(parseInt(poolData.token0.decimals));
+    setToken1Decimals(parseInt(poolData.token1.decimals));
+
     setPoolFee(parseFloat(poolData.feeTier) / 10000);
 
-    const token0Decimals = parseInt(poolData.token0.decimals);
-    const token1Decimals = parseInt(poolData.token1.decimals);
+    let token0Decimals = parseInt(poolData.token0.decimals);
+    let token1Decimals = parseInt(poolData.token1.decimals);
+
     const currentTick = parseInt(poolData.tick);
-
     const sqrtPrice = ethers.BigNumber.from(poolData.sqrtPrice);
-    const currentPrice = parseFloat(ethers.utils.formatUnits(sqrtPToPrice(sqrtPrice),(token1Decimals-token0Decimals)));
+    const currentPrice = parseFloat(sqrtPToPrice(sqrtPrice).toString()) / (10 ** (token1Decimals - token0Decimals));
 
-    setCurrentPrice(isToken0Base ? currentPrice : 1 / currentPrice);
+    setCurrentPrice( 1/ currentPrice);
 
-    const newOrderbook: OrderbookEntry[] = [];
+    const asks: OrderbookEntry[] = [];
+    const bids: OrderbookEntry[] = [];
+
     let cumulativeLiquidity = ethers.BigNumber.from(0);
 
     poolData.ticks.forEach((tick: any) => {
@@ -243,7 +249,7 @@ const UniswapV3Orderbook: React.FC = () => {
 
       if (cumulativeLiquidity.gt(0)) {
         const sqrtPriceX96 = priceToSqrtP(1.0001 ** tickIdx);
-        const price = parseFloat(ethers.utils.formatUnits(sqrtPToPrice(sqrtPriceX96),(token1Decimals-token0Decimals)));
+        const price = parseFloat(sqrtPToPrice(sqrtPriceX96).toString()) / (10 ** (token1Decimals - token0Decimals));
 
         // Calculate amounts based on liquidity
         const amount0 = getAmount0ForLiquidity(sqrtPrice, sqrtPriceX96, cumulativeLiquidity);
@@ -253,20 +259,38 @@ const UniswapV3Orderbook: React.FC = () => {
         const decimalAmount0 = parseFloat(ethers.utils.formatUnits(amount0, token0Decimals));
         const decimalAmount1 = parseFloat(ethers.utils.formatUnits(amount1, token1Decimals));
 
-        console.log("CurrentIndex" , currentTick, "TickIdx", tick.tickIdx)
-        newOrderbook.push({
-          price: isToken0Base ? price : 1 / price,
-          liquidity: isToken0Base ? decimalAmount1.toString() : decimalAmount0.toString(),
-          type: (tickIdx > currentTick ? 'ask' : 'bid')
-        });
+        if (decimalAmount0 > 0 && decimalAmount1 > 0) {
+          const entry: OrderbookEntry = {
+            price: 1 / price,
+            liquidity: decimalAmount1.toString(),
+            type: tickIdx > currentTick ? 'bid' : 'ask'
+          };
+
+          if (tickIdx > currentTick) {
+            bids.push(entry);
+          } else {
+            asks.push(entry);
+          }
+        }
       }
     });
 
-    setOrderbook(newOrderbook.sort((a, b) =>  b.price - a.price ));
-  }, [isToken0Base]);
+    // Sort asks from lowest to highest price
+    asks.sort((a, b) => a.price - b.price);
+    // Sort bids from highest to lowest price
+    bids.sort((a, b) => b.price - a.price);
+
+    // Slice to get top 50 asks and bids
+    const topAsks = asks.slice(0, 15);
+    const topBids = bids.slice(0, 15);
+
+    // Combine and set the orderbook
+    setOrderbook([...topAsks.reverse(), ...topBids]);
+  }, []);
 
   const fetchPoolData = async () => {
     setError(null);
+    setIsLoading(true);
     try {
       if (dataSource === 'subgraph' && !subgraphUrl) {
         throw new Error('Subgraph URL is required for subgraph data source');
@@ -278,34 +302,52 @@ const UniswapV3Orderbook: React.FC = () => {
       if (!contractAddress) {
         throw new Error('Contract address is required');
       }
-      const poolData = dataSource === 'subgraph' ? await fetchSubgraphData( ) : await fetchRpcData( );
+      const poolData = dataSource === 'subgraph' ? await fetchSubgraphData() : await fetchRpcData();
       processPoolData(poolData);
     } catch (err) {
       console.error(err);
       setError(`Failed to fetch pool data: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const toggleBaseToken = () => {
-    setIsToken0Base((prevIsToken0Base) => !prevIsToken0Base);
-    if (currentPrice !== null) {
-      setCurrentPrice(1 / currentPrice);
+  const chartData = useMemo(() => {
+    let bidSum = 0;
+    let askSum = 0;
+    return orderbook.map(order => {
+      if (order.type === 'bid') {
+        bidSum += parseFloat(order.liquidity);
+        return { price: order.price, bidDepth: bidSum, askDepth: 0 };
+      } else {
+        askSum += parseFloat(order.liquidity);
+        return { price: order.price, bidDepth: 0, askDepth: askSum };
+      }
+    });
+  }, [orderbook]);
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-2 border border-gray-300 rounded shadow">
+          <p className="text-sm">Price: {label.toFixed(6)}</p>
+          {payload[0].value > 0 && (
+            <p className="text-sm text-green-600">Bid Depth: {payload[0].value.toFixed(2)}</p>
+          )}
+          {payload[1].value > 0 && (
+            <p className="text-sm text-red-600">Ask Depth: {payload[1].value.toFixed(2)}</p>
+          )}
+        </div>
+      );
     }
-    setOrderbook((prevOrderbook) =>
-      prevOrderbook.map((order) => ({
-        ...order,
-        price: 1 / order.price,
-        type: order.type === 'bid' ? 'ask' : 'bid'
-      })).sort((a, b) => isToken0Base ? a.price - b.price : b.price - a.price)
-    );
+    return null;
   };
 
   return (
-    <Card className="w-full max-w-3xl mx-auto">
+    <Card className="w-full max-w-3xl mx-auto grid grid-cols-2">
+      <>
       <CardHeader>
         <CardTitle>Uniswap v3 Orderbook</CardTitle>
-      </CardHeader>
-      <CardContent>
         <div className="space-y-4 mb-4">
           <Select onValueChange={(value: 'subgraph' | 'rpc') => setDataSource(value)}>
             <SelectTrigger>
@@ -329,7 +371,7 @@ const UniswapV3Orderbook: React.FC = () => {
               placeholder="Enter RPC URL"
             />
           )}
-          <Select onValueChange={(value) => setSelectedPair(popularPairs.find(pair => pair.address === value) || null)}>
+          {/* <Select onValueChange={(value) => setSelectedPair(popularPairs.find(pair => pair.address === value) || null)}>
             <SelectTrigger>
               <SelectValue placeholder="Select Token Pair" />
             </SelectTrigger>
@@ -338,13 +380,23 @@ const UniswapV3Orderbook: React.FC = () => {
                 <SelectItem key={pair.address} value={pair.address}>{pair.name}</SelectItem>
               ))}
             </SelectContent>
-          </Select>
+          </Select> */}
+          <br/>
+          {/* or */}
+          Contract Address:
           <Input
             value={customContractAddress}
             onChange={(e) => setCustomContractAddress(e.target.value)}
-            placeholder="Or enter custom pool contract address"
+            placeholder="Enter custom pool contract address"
           />
-          <Button onClick={fetchPoolData}>Fetch Data</Button>
+          <Button onClick={fetchPoolData}> {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </>
+          ) : (
+            'Fetch Data'
+          )}</Button>
         </div>
         {error && (
           <Alert variant="destructive" className="mb-4">
@@ -356,46 +408,67 @@ const UniswapV3Orderbook: React.FC = () => {
           <>
             <div className="flex justify-between items-center mb-4">
               <p>Token Pair: {token0Symbol} / {token1Symbol}</p>
-              <div className="flex items-center space-x-2">
-                <span>{isToken0Base ? token0Symbol : token1Symbol} (Base)</span>
-                <Switch checked={isToken0Base} onCheckedChange={toggleBaseToken} />
-                <span>{isToken0Base ? token1Symbol : token0Symbol} (Quote)</span>
-              </div>
+
             </div>
             <p className="mb-2">Pool Fee: {poolFee}%</p>
-            <p className="mb-4">Current Price: {currentPrice.toFixed(6)} {isToken0Base ? token1Symbol : token0Symbol} per {isToken0Base ? token0Symbol : token1Symbol}</p>
+            <p className="mb-4">Current Price: {currentPrice.toFixed(token0Decimals)}  </p>
 
             <div className="h-64 mb-4">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={orderbook}>
-                  <XAxis dataKey="price" />
-                  <YAxis dataKey="liquidity" />
-                  <Tooltip />
-                  <Line type="stepAfter" dataKey="liquidity" stroke="#8884d8" />
-                </LineChart>
+                <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <XAxis
+                    dataKey="price"
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    tickFormatter={(value) => value.toFixed(2)}
+                  />
+                  <YAxis />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="stepAfter"
+                    dataKey="bidDepth"
+                    stackId="1"
+                    stroke="#82ca9d"
+                    fill="#82ca9d"
+                  />
+                  <Area
+                    type="stepAfter"
+                    dataKey="askDepth"
+                    stackId="1"
+                    stroke="#ff7e76"
+                    fill="#ff7e76"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
               </ResponsiveContainer>
             </div>
           </>
         )}
+      </CardHeader>
+      </>
+      <CardContent>
+
+
         <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Price ({isToken0Base ? token1Symbol : token0Symbol} per {isToken0Base ? token0Symbol : token1Symbol})</TableHead>
-                <TableHead>Liquidity</TableHead>
-                <TableHead>Type</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orderbook.map((order, index) => (
-                <TableRow key={index} className={order.type === 'bid' ? "bg-green-100" : "bg-red-100"}>
-                  <TableCell>{order.price.toFixed(6)}</TableCell>
-                  <TableCell>{parseFloat(order.liquidity).toFixed(2)}</TableCell>
-                  <TableCell>{order.type.toUpperCase()}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <Table className="w-full text-xs">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="py-1">Price</TableHead>
+                    <TableHead className="py-1">Liquidity</TableHead>
+                    <TableHead className="py-1">Type</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderbook.map((order, index) => (
+                    <TableRow key={index} className={`${order.type === 'bid' ? "bg-green-50" : "bg-red-50"} hover:bg-transparent`}>
+                      <TableCell className="py-0.5">{order.price.toFixed(6)}</TableCell>
+                      <TableCell className="py-0.5">{parseFloat(order.liquidity).toFixed(2)}</TableCell>
+                      <TableCell className="py-0.5">{order.type.toUpperCase()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
         </div>
       </CardContent>
     </Card>
