@@ -94,7 +94,7 @@ const getAmount1ForLiquidity = (sqrtA: ethers.BigNumber, sqrtB: ethers.BigNumber
 const UniswapV3Orderbook: React.FC = () => {
   const [dataSource, setDataSource] = useState<'subgraph' | 'rpc'>('subgraph');
   const [rpcUrl, setRpcUrl] = useState<string>('');
-  const [subgraphUrl, setSubgraphUrl] = useState<string>('https://gateway.thegraph.com/api/9f45d9bf4cb9d1bed40b678415a67563/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV');
+  const [subgraphUrl, setSubgraphUrl] = useState<string>('');
   const [selectedPair, setSelectedPair] = useState<TokenPair | null>(null);
   const [customContractAddress, setCustomContractAddress] = useState<string>('0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
@@ -235,7 +235,7 @@ const UniswapV3Orderbook: React.FC = () => {
     const sqrtPrice = ethers.BigNumber.from(poolData.sqrtPrice);
     const currentPrice = parseFloat(sqrtPToPrice(sqrtPrice).toString()) / (10 ** (token1Decimals - token0Decimals));
 
-    setCurrentPrice( 1/ currentPrice);
+    setCurrentPrice(1 / currentPrice);
 
     const asks: OrderbookEntry[] = [];
     const bids: OrderbookEntry[] = [];
@@ -346,32 +346,32 @@ const UniswapV3Orderbook: React.FC = () => {
   return (
     <Card className="w-full max-w-3xl mx-auto grid grid-cols-2">
       <>
-      <CardHeader>
-        <CardTitle>Uniswap v3 Orderbook</CardTitle>
-        <div className="space-y-4 mb-4">
-          <Select onValueChange={(value: 'subgraph' | 'rpc') => setDataSource(value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select Data Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="subgraph">Subgraph</SelectItem>
-              <SelectItem value="rpc">RPC</SelectItem>
-            </SelectContent>
-          </Select>
-          {dataSource === 'subgraph' ? (
-            <Input
-              value={subgraphUrl}
-              onChange={(e) => setSubgraphUrl(e.target.value)}
-              placeholder="Enter Subgraph URL"
-            />
-          ) : (
-            <Input
-              value={rpcUrl}
-              onChange={(e) => setRpcUrl(e.target.value)}
-              placeholder="Enter RPC URL"
-            />
-          )}
-          {/* <Select onValueChange={(value) => setSelectedPair(popularPairs.find(pair => pair.address === value) || null)}>
+        <CardHeader>
+          <CardTitle>Uniswap v3 Orderbook</CardTitle>
+          <div className="space-y-4 mb-4">
+            <Select onValueChange={(value: 'subgraph' | 'rpc') => setDataSource(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Data Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="subgraph">Subgraph</SelectItem>
+                <SelectItem value="rpc">RPC</SelectItem>
+              </SelectContent>
+            </Select>
+            {dataSource === 'subgraph' ? (
+              <Input
+                value={subgraphUrl}
+                onChange={(e) => setSubgraphUrl(e.target.value)}
+                placeholder="Enter Subgraph URL"
+              />
+            ) : (
+              <Input
+                value={rpcUrl}
+                onChange={(e) => setRpcUrl(e.target.value)}
+                placeholder="Enter RPC URL"
+              />
+            )}
+            {/* <Select onValueChange={(value) => setSelectedPair(popularPairs.find(pair => pair.address === value) || null)}>
             <SelectTrigger>
               <SelectValue placeholder="Select Token Pair" />
             </SelectTrigger>
@@ -381,94 +381,103 @@ const UniswapV3Orderbook: React.FC = () => {
               ))}
             </SelectContent>
           </Select> */}
-          <br/>
-          {/* or */}
-          Contract Address:
-          <Input
-            value={customContractAddress}
-            onChange={(e) => setCustomContractAddress(e.target.value)}
-            placeholder="Enter custom pool contract address"
-          />
-          <Button onClick={fetchPoolData}> {isLoading ? (
+            <br />
+            {/* or */}
+            Contract Address:
+            <Input
+              value={customContractAddress}
+              onChange={(e) => setCustomContractAddress(e.target.value)}
+              placeholder="Enter custom pool contract address"
+            />
+            <Button onClick={fetchPoolData}> {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              'Fetch Data'
+            )}</Button>
+          </div>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {currentPrice !== null && (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading...
-            </>
-          ) : (
-            'Fetch Data'
-          )}</Button>
-        </div>
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        {currentPrice !== null && (
-          <>
-            <div className="flex justify-between items-center mb-4">
-              <p>Token Pair: {token0Symbol} / {token1Symbol}</p>
+              <div className="flex justify-between items-center mb-4">
+                <p>Token Pair: {token0Symbol} / {token1Symbol}</p>
 
-            </div>
-            <p className="mb-2">Pool Fee: {poolFee}%</p>
-            <p className="mb-4">Current Price: {currentPrice.toFixed(token0Decimals)}  </p>
+              </div>
+              <p className="mb-2">Pool Fee: {poolFee}%</p>
+              <p className="mb-4">Current Price: {currentPrice.toFixed(token0Decimals)}  </p>
 
-            <div className="h-64 mb-4">
-              <ResponsiveContainer width="100%" height="100%">
+              <div className="h-64 mb-4">
                 <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <XAxis
-                    dataKey="price"
-                    type="number"
-                    domain={['dataMin', 'dataMax']}
-                    tickFormatter={(value) => value.toFixed(2)}
-                  />
-                  <YAxis />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="stepAfter"
-                    dataKey="bidDepth"
-                    stackId="1"
-                    stroke="#82ca9d"
-                    fill="#82ca9d"
-                  />
-                  <Area
-                    type="stepAfter"
-                    dataKey="askDepth"
-                    stackId="1"
-                    stroke="#ff7e76"
-                    fill="#ff7e76"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-              </ResponsiveContainer>
-            </div>
-          </>
-        )}
-      </CardHeader>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <XAxis
+                        dataKey="price"
+                        type="number"
+                        domain={['dataMin', 'dataMax']}
+                        tickFormatter={(value) => value.toFixed(2)}
+                      />
+                      <YAxis />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area
+                        type="stepAfter"
+                        dataKey="bidDepth"
+                        stackId="1"
+                        stroke="#82ca9d"
+                        fill="#82ca9d"
+                      />
+                      <Area
+                        type="stepAfter"
+                        dataKey="askDepth"
+                        stackId="1"
+                        stroke="#ff7e76"
+                        fill="#ff7e76"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </ResponsiveContainer>
+              </div>
+
+
+            </>
+
+          )}
+ <ul className="text-xs">
+          Example V3 Contracts :
+            <li> USDC/WETH : 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640</li>
+            <li> WBTC/ETH : 0xCBCdF9626bC03E24f779434178A73a0B4bad62eD </li>
+          </ul>
+
+        </CardHeader>
+
       </>
       <CardContent>
 
-
         <div className="overflow-x-auto">
-        <Table className="w-full text-xs">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="py-1">Price</TableHead>
-                    <TableHead className="py-1">Liquidity</TableHead>
-                    <TableHead className="py-1">Type</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orderbook.map((order, index) => (
-                    <TableRow key={index} className={`${order.type === 'bid' ? "bg-green-50" : "bg-red-50"} hover:bg-transparent`}>
-                      <TableCell className="py-0.5">{order.price.toFixed(6)}</TableCell>
-                      <TableCell className="py-0.5">{parseFloat(order.liquidity).toFixed(2)}</TableCell>
-                      <TableCell className="py-0.5">{order.type.toUpperCase()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+          <Table className="w-full text-xs">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="py-1">Price</TableHead>
+                <TableHead className="py-1">Liquidity</TableHead>
+                <TableHead className="py-1">Type</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orderbook.map((order, index) => (
+                <TableRow key={index} className={`${order.type === 'bid' ? "bg-green-50" : "bg-red-50"} hover:bg-transparent`}>
+                  <TableCell className="py-0.5">{order.price.toFixed(6)}</TableCell>
+                  <TableCell className="py-0.5">{parseFloat(order.liquidity).toFixed(2)}</TableCell>
+                  <TableCell className="py-0.5">{order.type.toUpperCase()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>
