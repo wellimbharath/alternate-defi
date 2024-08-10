@@ -16,17 +16,22 @@ Before you begin, make sure you have Node.js (version 10.13 or later) and npm/ya
 
 
 
-### Install
+## Install
 
 1. `git clone git@github.com:wellimbharath/alternate-defi.git`
 2. `npm install`
 3. `npm run dev`
 
 
-### How to use
+## How to use
 
-1. Get your subgraph from [Uniswap V3 Subgraph](https://thegraph.com/explorer/subgraphs/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV?view=Query&chain=arbitrum-one)
-2. Get your api key from [The graph studio](https://thegraph.com/studio/)
+1. Get your subgraph Uniswap V3 Subgraph from
+  - [Alchmey](https://subgraphs.alchemy.com/subgraphs/5603) or
+  - [The Ghost ](https://thegraph.com/explorer/subgraphs/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV?view=Query&chain=arbitrum-one)
+
+2. Get your api key from
+- [Alchemy Subgraph](https://subgraphs.alchemy.com/subgraphs/5603) /
+- [The graph studio](https://thegraph.com/studio/)
 
 Add the `api-key` and `uniswap v3` liquidity pool to the site and visualize the orderbook:
 
