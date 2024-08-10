@@ -357,7 +357,7 @@ const UniswapV3Orderbook: React.FC = () => {
                 placeholder="Enter Subgraph URL"
               />
 
-              <span className="text-xs">* get your api key from <a href="https://subgraphs.alchemy.com/subgraphs/5603"> Alchemy </a> or <a href="https://thegraph.com/studio/apikeys/"> TheGraph </a> </span>
+              <span className="text-xs">* get your api key from <a target='_blank' href="https://subgraphs.alchemy.com/subgraphs/5603"> Alchemy </a> or <a target='_blank' href="https://thegraph.com/studio/apikeys/"> TheGraph </a> </span>
               </>
             ) : (
               <Input
