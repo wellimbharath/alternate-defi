@@ -29,6 +29,7 @@ interface OrderbookEntry {
   price: number;
   liquidity: string;
   type: string;
+  tickIdx: number;
 }
 
 interface TokenPair {
@@ -40,6 +41,9 @@ interface TokenPair {
 const Q96 = ethers.BigNumber.from(2).pow(96);
 const Q192 = ethers.BigNumber.from(2).pow(192);
 
+const tickToPrice = (tick: number): number => {
+  return 1.0001 ** tick;
+}
 
 const priceToSqrtP = (price: number): ethers.BigNumber => {
   if (price <= 0) return ethers.constants.Zero;
@@ -50,6 +54,12 @@ const priceToSqrtP = (price: number): ethers.BigNumber => {
 
 const sqrtPToPrice = (sqrtP: ethers.BigNumber): ethers.BigNumber => {
   if (sqrtP.isZero()) return ethers.BigNumber.from(0);
+  const squaredPrice = sqrtP.mul(sqrtP);
+
+  // Adjust for Q192
+  const priceQ192 = squaredPrice.div(Q192);
+
+  console.log("squaredPrice", squaredPrice.toString(), Q192.toString(), priceQ192.toString());
   const price = sqrtP.mul(sqrtP).div(Q192);
   return price;
 };
@@ -87,7 +97,7 @@ const UniswapV3Orderbook: React.FC = () => {
   const [rpcUrl, setRpcUrl] = useState<string>('');
   const [subgraphUrl, setSubgraphUrl] = useState<string>('https://subgraph.satsuma-prod.com/[api-key]/perosnal--524835/community/uniswap-v3-mainnet/version/0.0.1/api');
   const [selectedPair, setSelectedPair] = useState<TokenPair | null>(null);
-  const [customContractAddress, setCustomContractAddress] = useState<string>('0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640');
+  const [customContractAddress, setCustomContractAddress] = useState<string>('0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [orderbook, setOrderbook] = useState<OrderbookEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -224,9 +234,10 @@ const UniswapV3Orderbook: React.FC = () => {
 
     const currentTick = parseInt(poolData.tick);
     const sqrtPrice = ethers.BigNumber.from(poolData.sqrtPrice);
-    const currentPrice = parseFloat(sqrtPToPrice(sqrtPrice).toString()) / (10 ** (token1Decimals - token0Decimals));
+    console.log(token1Decimals, token0Decimals, poolData.sqrtPrice, sqrtPToPrice(sqrtPrice), ethers.utils.formatUnits(parseFloat(sqrtPToPrice(sqrtPrice).toString())));
+    let currentPrice = parseFloat(sqrtPToPrice(sqrtPrice).toString()) / (10 ** (token1Decimals - token0Decimals));
 
-    setCurrentPrice(1 / currentPrice);
+    setCurrentPrice(1 / currentPrice == Infinity ? 1 / (tickToPrice(currentTick) * (10 ** token1Decimals)) : 1 / currentPrice);
 
     const asks: OrderbookEntry[] = [];
     const bids: OrderbookEntry[] = [];
@@ -240,36 +251,48 @@ const UniswapV3Orderbook: React.FC = () => {
 
       if (cumulativeLiquidity.gt(0)) {
         const sqrtPriceX96 = priceToSqrtP(1.0001 ** tickIdx);
-        const price = parseFloat(sqrtPToPrice(sqrtPriceX96).toString()) / (10 ** (token1Decimals - token0Decimals));
+        let price = parseFloat(sqrtPToPrice(sqrtPriceX96).toString()) / (10 ** (token1Decimals - token0Decimals));
+
 
         // Calculate amounts based on liquidity
         const amount0 = getAmount0ForLiquidity(sqrtPrice, sqrtPriceX96, cumulativeLiquidity);
         const amount1 = getAmount1ForLiquidity(sqrtPrice, sqrtPriceX96, cumulativeLiquidity);
 
+
+        const liquidity0 = getLiquidityForAmount0(sqrtPrice, sqrtPriceX96, amount0);
+        const liquidity1 = getLiquidityForAmount1(sqrtPrice, sqrtPriceX96, amount1);
+
         // Convert amounts to decimal representation
-        const decimalAmount0 = parseFloat(ethers.utils.formatUnits(amount0, token0Decimals));
-        const decimalAmount1 = parseFloat(ethers.utils.formatUnits(amount1, token1Decimals));
+        const decimalAmount0 = parseFloat(ethers.utils.formatUnits(liquidity0, token0Decimals));
+        const decimalAmount1 = parseFloat(ethers.utils.formatUnits(liquidity1, token1Decimals));
+
 
         if (decimalAmount0 > 0 && decimalAmount1 > 0) {
           const entry: OrderbookEntry = {
-            price: 1 / price,
-            liquidity: decimalAmount1.toString(),
-            type: tickIdx > currentTick ? 'bid' : 'ask'
+            price: ((1 / price) == Infinity) ? parseFloat((1 / (tickToPrice(tickIdx) * (10 ** token1Decimals))).toFixed(token0Decimals)) : 1 / price,
+            liquidity: decimalAmount1.toFixed(token1Decimals).toString(),
+            type: tickIdx > currentTick ? 'bid' : 'ask',
+            tickIdx: tickIdx
           };
 
+
           if (tickIdx > currentTick) {
-            bids.push(entry);
+            if (entry.price > 0) {
+              bids.push(entry);
+            }
           } else {
-            asks.push(entry);
+            if (entry.price > 0) {
+              asks.push(entry);
+            }
           }
         }
       }
     });
 
     // Sort asks from lowest to highest price
-    asks.sort((a, b) => a.price - b.price);
+    asks.sort((a, b) => b.tickIdx - a.tickIdx);
     // Sort bids from highest to lowest price
-    bids.sort((a, b) => b.price - a.price);
+    bids.sort((a, b) => a.tickIdx - b.tickIdx);
 
     // Slice to get top 50 asks and bids
     const topAsks = asks.slice(0, 15);
@@ -351,13 +374,13 @@ const UniswapV3Orderbook: React.FC = () => {
             </Select>
             {dataSource === 'subgraph' ? (
               <>
-              <Input
-                value={subgraphUrl}
-                onChange={(e) => setSubgraphUrl(e.target.value)}
-                placeholder="Enter Subgraph URL"
-              />
+                <Input
+                  value={subgraphUrl}
+                  onChange={(e) => setSubgraphUrl(e.target.value)}
+                  placeholder="Enter Subgraph URL"
+                />
 
-              <span className="text-xs">* get your api key from <a target='_blank' href="https://subgraphs.alchemy.com/subgraphs/5603"> Alchemy </a> or <a target='_blank' href="https://thegraph.com/studio/apikeys/"> TheGraph </a> </span>
+                <span className="text-xs">* get your api key from <a target='_blank' href="https://subgraphs.alchemy.com/subgraphs/5603"> Alchemy </a> or <a target='_blank' href="https://thegraph.com/studio/apikeys/"> TheGraph </a> </span>
               </>
             ) : (
               <Input
@@ -381,14 +404,14 @@ const UniswapV3Orderbook: React.FC = () => {
             {/* or */}
             <>
 
-            <Input
-              value={customContractAddress}
-              onChange={(e) => setCustomContractAddress(e.target.value)}
-              placeholder="Enter custom pool contract address"
-            />
+              <Input
+                value={customContractAddress}
+                onChange={(e) => setCustomContractAddress(e.target.value)}
+                placeholder="Enter custom pool contract address"
+              />
               <span className="text-xs"> * Uni v3 Pool Address</span>
             </>
-            <br/>
+            <br />
             <Button onClick={fetchPoolData}> {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -448,10 +471,13 @@ const UniswapV3Orderbook: React.FC = () => {
             </>
 
           )}
- <ul className="text-xs">
-          Example V3 Contracts :
+          <ul className="text-xs">
+            Example V3 Contracts :
             <li> USDC/WETH : 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640</li>
             <li> WBTC/ETH : 0xCBCdF9626bC03E24f779434178A73a0B4bad62eD </li>
+
+
+            Find more Pools : <a href="https://www.geckoterminal.com/eth/uniswap_v3/pools" target="_blank"> https://www.geckoterminal.com/eth/uniswap_v3/pools</a>
           </ul>
 
         </CardHeader>
@@ -464,8 +490,9 @@ const UniswapV3Orderbook: React.FC = () => {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-1">Price</TableHead>
-                <TableHead className="py-1">Liquidity</TableHead>
+                <TableHead className="py-1">Liquidity ({token1Symbol})</TableHead>
                 <TableHead className="py-1">Type</TableHead>
+                <TableHead className="py-1">Tick Idx</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -474,6 +501,7 @@ const UniswapV3Orderbook: React.FC = () => {
                   <TableCell className="py-0.5">{order.price.toFixed(6)}</TableCell>
                   <TableCell className="py-0.5">{parseFloat(order.liquidity).toFixed(2)}</TableCell>
                   <TableCell className="py-0.5">{order.type.toUpperCase()}</TableCell>
+                  <TableCell className="py-0.5">{order.tickIdx}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -483,11 +511,11 @@ const UniswapV3Orderbook: React.FC = () => {
 
       <CardFooter className="flex flex-col items-center justify-center pt-4 pb-2 px-4 mt-4 border-t text-sm text-gray-500 flex-col-2">
         <div className="flex items-center mb-2">
-         Made with ❤️ by <a href="https://twitter.com/wellimbharath" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">@wellimbharath</a>
+          Made with ❤️ by <a href="https://twitter.com/wellimbharath" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700">@wellimbharath</a>
         </div>
 
-        </CardFooter>
-        <CardFooter className="flex flex-col items-center justify-center pt-4 pb-2 px-4 mt-4 border-t text-sm text-gray-500 flex-col-2">
+      </CardFooter>
+      <CardFooter className="flex flex-col items-center justify-center pt-4 pb-2 px-4 mt-4 border-t text-sm text-gray-500 flex-col-2">
         <div className="flex items-center space-x-4">
           <a href="https://github.com/wellimbharath/alternate-defi" target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-gray-700">
             <Github className="h-4 w-4 mr-1" />
