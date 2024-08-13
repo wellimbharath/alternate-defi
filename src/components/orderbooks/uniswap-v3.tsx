@@ -92,7 +92,7 @@ const UniswapV3Orderbook: React.FC = () => {
   const [rpcUrl, setRpcUrl] = useState<string>('');
   const [subgraphUrl, setSubgraphUrl] = useState<string>('https://subgraph.satsuma-prod.com/[api-key]/perosnal--524835/community/uniswap-v3-mainnet/version/0.0.1/api');
   const [selectedPair, setSelectedPair] = useState<TokenPair | null>(null);
-  const [customContractAddress, setCustomContractAddress] = useState<string>('0x4109ab7966c5461439bdb0beda92c92fec767966');
+  const [customContractAddress, setCustomContractAddress] = useState<string>('0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [orderbook, setOrderbook] = useState<OrderbookEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
