@@ -54,12 +54,7 @@ const priceToSqrtP = (price: number): ethers.BigNumber => {
 
 const sqrtPToPrice = (sqrtP: ethers.BigNumber): ethers.BigNumber => {
   if (sqrtP.isZero()) return ethers.BigNumber.from(0);
-  const squaredPrice = sqrtP.mul(sqrtP);
 
-  // Adjust for Q192
-  const priceQ192 = squaredPrice.div(Q192);
-
-  console.log("squaredPrice", squaredPrice.toString(), Q192.toString(), priceQ192.toString());
   const price = sqrtP.mul(sqrtP).div(Q192);
   return price;
 };
@@ -97,7 +92,7 @@ const UniswapV3Orderbook: React.FC = () => {
   const [rpcUrl, setRpcUrl] = useState<string>('');
   const [subgraphUrl, setSubgraphUrl] = useState<string>('https://subgraph.satsuma-prod.com/[api-key]/perosnal--524835/community/uniswap-v3-mainnet/version/0.0.1/api');
   const [selectedPair, setSelectedPair] = useState<TokenPair | null>(null);
-  const [customContractAddress, setCustomContractAddress] = useState<string>('0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640');
+  const [customContractAddress, setCustomContractAddress] = useState<string>('0x4109ab7966c5461439bdb0beda92c92fec767966');
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [orderbook, setOrderbook] = useState<OrderbookEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -234,10 +229,10 @@ const UniswapV3Orderbook: React.FC = () => {
 
     const currentTick = parseInt(poolData.tick);
     const sqrtPrice = ethers.BigNumber.from(poolData.sqrtPrice);
-    console.log(token1Decimals, token0Decimals, poolData.sqrtPrice, sqrtPToPrice(sqrtPrice), ethers.utils.formatUnits(parseFloat(sqrtPToPrice(sqrtPrice).toString())));
-    let currentPrice = parseFloat(sqrtPToPrice(sqrtPrice).toString()) / (10 ** (token1Decimals - token0Decimals));
 
-    setCurrentPrice(1 / currentPrice == Infinity ? 1 / (tickToPrice(currentTick) * (10 ** token1Decimals)) : 1 / currentPrice);
+    let currentPrice = (tickToPrice(currentTick) * (10 ** (token0Decimals - token1Decimals)));
+
+    setCurrentPrice(1 / currentPrice);
 
     const asks: OrderbookEntry[] = [];
     const bids: OrderbookEntry[] = [];
@@ -251,8 +246,8 @@ const UniswapV3Orderbook: React.FC = () => {
 
       if (cumulativeLiquidity.gt(0)) {
         const sqrtPriceX96 = priceToSqrtP(1.0001 ** tickIdx);
-        let price = parseFloat(sqrtPToPrice(sqrtPriceX96).toString()) / (10 ** (token1Decimals - token0Decimals));
 
+        let price = (tickToPrice(tickIdx) * (10 ** (token0Decimals - token1Decimals)));
 
         // Calculate amounts based on liquidity
         const amount0 = getAmount0ForLiquidity(sqrtPrice, sqrtPriceX96, cumulativeLiquidity);
@@ -268,8 +263,9 @@ const UniswapV3Orderbook: React.FC = () => {
 
 
         if (decimalAmount0 > 0 && decimalAmount1 > 0) {
+
           const entry: OrderbookEntry = {
-            price: ((1 / price) == Infinity) ? parseFloat((1 / (tickToPrice(tickIdx) * (10 ** token1Decimals))).toFixed(token0Decimals)) : 1 / price,
+            price: 1 / price,
             liquidity: decimalAmount1.toFixed(token1Decimals).toString(),
             type: tickIdx > currentTick ? 'bid' : 'ask',
             tickIdx: tickIdx
@@ -358,7 +354,7 @@ const UniswapV3Orderbook: React.FC = () => {
   };
 
   return (
-    <Card className="w-full max-w-3xl mx-auto grid grid-cols-2">
+    <Card className="w-full max-w-5xl mx-auto grid grid-cols-2">
       <>
         <CardHeader>
           <CardTitle>Uniswap v3 Orderbook</CardTitle>
@@ -498,7 +494,7 @@ const UniswapV3Orderbook: React.FC = () => {
             <TableBody>
               {orderbook.map((order, index) => (
                 <TableRow key={index} className={`${order.type === 'bid' ? "bg-green-50" : "bg-red-50"} hover:bg-transparent`}>
-                  <TableCell className="py-0.5">{order.price.toFixed(6)}</TableCell>
+                  <TableCell className="py-0.5">{order.price.toFixed(token0Decimals)}</TableCell>
                   <TableCell className="py-0.5">{parseFloat(order.liquidity).toFixed(2)}</TableCell>
                   <TableCell className="py-0.5">{order.type.toUpperCase()}</TableCell>
                   <TableCell className="py-0.5">{order.tickIdx}</TableCell>
