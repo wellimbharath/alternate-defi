@@ -236,7 +236,7 @@ const UniswapV3Orderbook: React.FC = () => {
 
     let currentPrice = (tickToPrice(currentTick) * (10 ** (token0Decimals - token1Decimals)));
 
-    setCurrentPrice(1 / currentPrice);
+    setCurrentPrice(currentPrice);
 
     const asks: OrderbookEntry[] = [];
     const bids: OrderbookEntry[] = [];
@@ -269,7 +269,7 @@ const UniswapV3Orderbook: React.FC = () => {
         if (decimalAmount0 > 0 && decimalAmount1 > 0) {
 
           const entry: OrderbookEntry = {
-            price :  1 / price,
+            price :  price,
             liquidity: decimalAmount1.toFixed(token1Decimals).toString(),
             type: tickIdx > currentTick ? 'bid' : 'ask',
             tickIdx: tickIdx
@@ -441,7 +441,7 @@ const UniswapV3Orderbook: React.FC = () => {
 
               </div>
               <p className="mb-2">Pool Fee: {poolFee}%</p>
-              <p className="mb-4">Current Price: {invertPrices ? (1 / currentPrice).toFixed(token1Decimals) : currentPrice.toFixed(token0Decimals)} {invertPrices ? token0Symbol : token1Symbol}</p>
+              <p className="mb-4">Current Price: {invertPrices ? (1 / currentPrice).toFixed(token1Decimals) : currentPrice.toFixed(token0Decimals)} {invertPrices ? `${token0Symbol}/${token1Symbol}` :  `${token1Symbol}/${token0Symbol}`}</p>
 
               <div className="h-64 mb-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -506,7 +506,7 @@ const UniswapV3Orderbook: React.FC = () => {
             <TableBody>
               {orderbook.map((order, index) => (
                 <TableRow key={index} className={`${order.type === 'bid' ? "bg-green-50" : "bg-red-50"} hover:bg-transparent`}>
-                  <TableCell className="py-0.5">{invertPrices ? (1 / order.price).toFixed(token1Decimals) : order.price.toFixed(token0Decimals)}</TableCell>
+                  <TableCell className="py-0.5">{invertPrices ? (1 / order.price).toFixed(token0Decimals) : order.price.toFixed(token1Decimals)}</TableCell>
                   <TableCell className="py-0.5">{parseFloat(order.liquidity).toFixed(2)}</TableCell>
                   <TableCell className="py-0.5">{order.type.toUpperCase()}</TableCell>
                   <TableCell className="py-0.5">{order.tickIdx}</TableCell>
