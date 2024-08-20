@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Github, Loader2 } from 'lucide-react';
 
+import { Label } from "@/components/ui/label";
+import { Switch } from '../ui/switch';
 const UNISWAP_V3_POOL_ABI = [
   "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)",
   "function liquidity() external view returns (uint128)",
@@ -88,6 +90,8 @@ const getAmount1ForLiquidity = (sqrtA: ethers.BigNumber, sqrtB: ethers.BigNumber
 
 
 const UniswapV3Orderbook: React.FC = () => {
+  const [invertPrices, setInvertPrices] = useState(false);
+
   const [dataSource, setDataSource] = useState<'subgraph' | 'rpc'>('subgraph');
   const [rpcUrl, setRpcUrl] = useState<string>('');
   const [subgraphUrl, setSubgraphUrl] = useState<string>('https://subgraph.satsuma-prod.com/[api-key]/perosnal--524835/community/uniswap-v3-mainnet/version/0.0.1/api');
@@ -265,7 +269,7 @@ const UniswapV3Orderbook: React.FC = () => {
         if (decimalAmount0 > 0 && decimalAmount1 > 0) {
 
           const entry: OrderbookEntry = {
-            price: 1 / price,
+            price :  1 / price,
             liquidity: decimalAmount1.toFixed(token1Decimals).toString(),
             type: tickIdx > currentTick ? 'bid' : 'ask',
             tickIdx: tickIdx
@@ -352,7 +356,9 @@ const UniswapV3Orderbook: React.FC = () => {
     }
     return null;
   };
-
+  const handleInvertPrices = () => {
+    setInvertPrices(!invertPrices);
+  };
   return (
     <Card className="w-full max-w-5xl mx-auto grid grid-cols-2">
       <>
@@ -423,6 +429,11 @@ const UniswapV3Orderbook: React.FC = () => {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          <div className="flex items-center space-x-2 mt-4">
+            <Switch id="invert-prices" checked={invertPrices} onCheckedChange={handleInvertPrices} />
+            <Label htmlFor="invert-prices">Invert Prices</Label>
+          </div>
           {currentPrice !== null && (
             <>
               <div className="flex justify-between items-center mb-4">
@@ -430,7 +441,7 @@ const UniswapV3Orderbook: React.FC = () => {
 
               </div>
               <p className="mb-2">Pool Fee: {poolFee}%</p>
-              <p className="mb-4">Current Price: {currentPrice.toFixed(token0Decimals)}  </p>
+              <p className="mb-4">Current Price: {invertPrices ? (1 / currentPrice).toFixed(token1Decimals) : currentPrice.toFixed(token0Decimals)} {invertPrices ? token0Symbol : token1Symbol}</p>
 
               <div className="h-64 mb-4">
                 <ResponsiveContainer width="100%" height="100%">
@@ -485,7 +496,8 @@ const UniswapV3Orderbook: React.FC = () => {
           <Table className="w-full text-xs">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="py-1">Price</TableHead>
+              <TableHead className="py-1">Price ({invertPrices ? token0Symbol : token1Symbol})</TableHead>
+
                 <TableHead className="py-1">Liquidity ({token1Symbol})</TableHead>
                 <TableHead className="py-1">Type</TableHead>
                 <TableHead className="py-1">Tick Idx</TableHead>
@@ -494,7 +506,7 @@ const UniswapV3Orderbook: React.FC = () => {
             <TableBody>
               {orderbook.map((order, index) => (
                 <TableRow key={index} className={`${order.type === 'bid' ? "bg-green-50" : "bg-red-50"} hover:bg-transparent`}>
-                  <TableCell className="py-0.5">{order.price.toFixed(token0Decimals)}</TableCell>
+                  <TableCell className="py-0.5">{invertPrices ? (1 / order.price).toFixed(token1Decimals) : order.price.toFixed(token0Decimals)}</TableCell>
                   <TableCell className="py-0.5">{parseFloat(order.liquidity).toFixed(2)}</TableCell>
                   <TableCell className="py-0.5">{order.type.toUpperCase()}</TableCell>
                   <TableCell className="py-0.5">{order.tickIdx}</TableCell>
